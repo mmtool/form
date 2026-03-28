@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>AgreementFlow | Smart Contract Signing Portal</title>
+    <!-- html2pdf + signature library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.1.7/dist/signature_pad.umd.min.js"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #eef2f7 100%);
+            min-height: 100vh;
+            padding: 30px 20px;
+        }
+
+        /* Main container */
+        .app-container {
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        h1 {
+            font-size: 2rem;
+            background: linear-gradient(135deg, #1a472a, #2c5e3a);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            letter-spacing: -0.5px;
+        }
+        .sub {
+            color: #4a627a;
+            margin-top: 8px;
+        }
+
+        /* Two column layout */
+        .dashboard-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+        }
+        .creator-panel {
+            flex: 1.2;
+            min-width: 320px;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.1);
+            padding: 28px;
+            height: fit-content;
+        }
+        .agreement-table-panel {
+            flex: 2;
+            min-width: 500px;
+            background: white;
+            border-radius: 28px;
+            box-shadow: 0 20px 35px -12px rgba(0,0,0,0.1);
+            padding: 24px;
+            overflow-x: auto;
+        }
+
+        /* Form styles */
+        .form-group {
+            margin-bottom: 22px;
+        }
+        label {
+            font-weight: 600;
+            color: #1e3a3a;
+            margin-bottom: 8px;
+            display: block;
+            font-size: 0.9rem;
+        }
+        input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 24px;
+            font-size: 0.95rem;
+            transition: all 0.2s;
+            background: #fefefe;
+        }
+        input:focus {
+            outline: none;
+            border-color: #2c7a4d;
+            box-shadow: 0 0 0 3px rgba(44,122,77,0.15);
+        }
+        .static-agreement-box {
+            background: #f9fbfd;
+            border-left: 4px solid #2c7a4d;
+            padding: 18px;
+            border-radius: 20px;
+            margin: 20px 0;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            color: #2d3e50;
+            max-height: 280px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .btn {
+            border: none;
+            background: #2c7a4d;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 40px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .btn-primary {
+            background: #2c7a4d;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+        }
+        .btn-primary:hover {
+            background: #1e5a3a;
+            transform: translateY(-2px);
+        }
+        .btn-outline {
+            background: transparent;
+            border: 1.5px solid #2c7a4d;
+            color: #2c7a4d;
+        }
+        .btn-outline:hover {
+            background: #e8f3ed;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            text-align: left;
+            padding: 14px 8px;
+            border-bottom: 1px solid #e9edf2;
+        }
+        th {
+            color: #2c5e3a;
+            font-weight: 600;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+        .status-draft { background: #fff3e0; color: #b45f06; }
+        .status-created { background: #e0f2fe; color: #0c6b7e; }
+        .status-signed { background: #d9f0e1; color: #1f6e43; }
+        .action-icons i {
+            margin: 0 6px;
+            cursor: pointer;
+            font-size: 1.2rem;
+            color: #557c5a;
+            transition: 0.1s;
+        }
+        .action-icons i:hover { color: #1f5e3a; transform: scale(1.05); }
+        .link-copy {
+            background: #f1f5f9;
+            padding: 5px 12px;
+            border-radius: 30px;
+            font-size: 0.7rem;
+            cursor: pointer;
+            font-family: monospace;
+            display: inline-block;
+        }
+        /* CUSTOMER PAGE (standalone) */
+        .customer-page {
+            max-width: 850px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 40px;
+            box-shadow: 0 25px 45px -12px rgba(0,0,0,0.2);
+            padding: 32px 36px;
+        }
+        .customer-header {
+            text-align: center;
+            border-bottom: 2px solid #eef2f0;
+            padding-bottom: 20px;
+            margin-bottom: 28px;
+        }
+        .signature-pad-container {
+            border: 2px solid #e2e8f0;
+            border-radius: 28px;
+            background: white;
+            margin: 20px 0;
+            padding: 10px;
+        }
+        canvas {
+            width: 100%;
+            height: 200px;
+            border-radius: 20px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+        }
+        .flex-buttons {
+            display: flex;
+            gap: 14px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+        .signed-message {
+            background: #e6f4ea;
+            border-radius: 28px;
+            padding: 24px;
+            text-align: center;
+            color: #1e6f3f;
+        }
+        hr { margin: 20px 0; }
+        .info-note {
+            background: #f8fafc;
+            border-radius: 20px;
+            padding: 12px;
+            font-size: 0.8rem;
+            margin-top: 15px;
+        }
+        @media (max-width: 780px) {
+            .dashboard-grid { flex-direction: column; }
+            .agreement-table-panel { min-width: auto; }
+            .customer-page { padding: 20px; }
+        }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+        .static-text-content {
+            background: #fefaf5;
+            padding: 18px;
+            border-radius: 24px;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body>
+<div class="app-container" id="adminApp">
+    <div class="header">
+        <h1><i class="fas fa-file-contract"></i> PactForge · Agreement Portal</h1>
+        <div class="sub">Create agreements → Generate secure signing links → Customers sign once</div>
+    </div>
+
+    <div class="dashboard-grid">
+        <!-- LEFT: CREATE AGREEMENT (Static agreement text fixed) -->
+        <div class="creator-panel">
+            <h3 style="margin-bottom: 20px;"><i class="fas fa-plus-circle"></i> New Agreement</h3>
+            <div class="form-group">
+                <label><i class="fas fa-user"></i> Customer Name *</label>
+                <input type="text" id="clientName" placeholder="Full legal name" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-phone-alt"></i> Phone Number *</label>
+                <input type="tel" id="clientPhone" placeholder="+1 555 123 4567">
+            </div>
+            <div class="form-group">
+                <label><i class="fas fa-scroll"></i> Agreement Text (Fixed Template)</label>
+                <div class="static-agreement-box" id="staticAgreementDisplay">
+                    <strong>SERVICE AGREEMENT & TERMS</strong><br><br>
+                    This Agreement is entered into between [Company Name] and the undersigned client.<br><br>
+                    <strong>1. Scope of Work:</strong> The service provider agrees to deliver professional consulting services as described in the proposal.<br>
+                    <strong>2. Payment Terms:</strong> Total fee: $1,200 USD due upon signing. Non-refundable deposit: 30%.<br>
+                    <strong>3. Timeline:</strong> Project completion within 14 business days from the date of signature.<br>
+                    <strong>4. Confidentiality:</strong> Both parties agree to keep all shared information strictly confidential.<br>
+                    <strong>5. Liability:</strong> Provider is not liable for indirect damages. Max liability limited to amount paid.<br>
+                    <strong>6. Governing Law:</strong> This agreement shall be governed by the laws of Delaware.<br><br>
+                    By signing below, the customer acknowledges they have read, understood, and agree to all terms above.
+                </div>
+            </div>
+            <button class="btn btn-primary" id="createAgreementBtn"><i class="fas fa-save"></i> Save & Generate Signing Link</button>
+            <div class="info-note">
+                <i class="fas fa-info-circle"></i> Agreement text is fixed. Customer will see exactly this template. After generation, share the unique link.
+            </div>
+        </div>
+
+        <!-- RIGHT: AGREEMENTS TABLE -->
+        <div class="agreement-table-panel">
+            <h3 style="margin-bottom: 16px;"><i class="fas fa-table-list"></i> Agreements Dashboard</h3>
+            <div style="overflow-x: auto;">
+                <table id="agreementsTable">
+                    <thead>
+                        <tr><th>ID</th><th>Date</th><th>Customer</th><th>Status</th><th>Actions</th><th>Signing Link</th></tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr><td colspan="6" style="text-align:center;">No agreements yet. Create one above →</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- This container will hold the customer page when navigating via direct link (no modal) -->
+<div id="customerViewRoot" style="display:none;"></div>
+
+<script>
+    // ---------- FIXED STATIC AGREEMENT TEXT (used for all agreements) ----------
+    const STATIC_AGREEMENT_TEXT = `SERVICE AGREEMENT & TERMS
+
+This Agreement is entered into between [Company Name] and the undersigned client.
+
+1. Scope of Work: The service provider agrees to deliver professional consulting services as described in the proposal.
+
+2. Payment Terms: Total fee: $1,200 USD due upon signing. Non-refundable deposit: 30%.
+
+3. Timeline: Project completion within 14 business days from the date of signature.
+
+4. Confidentiality: Both parties agree to keep all shared information strictly confidential.
+
+5. Liability: Provider is not liable for indirect damages. Max liability limited to amount paid.
+
+6. Governing Law: This agreement shall be governed by the laws of Delaware.
+
+By signing below, the customer acknowledges they have read, understood, and agree to all terms above.`;
+
+    // Data model
+    let agreements = []; // each: { id, date, clientName, clientPhone, status, signatureDataURL, signedAt }
+
+    // Helper functions
+    function generateUniqueId() {
+        return 'ag_' + Date.now() + '_' + Math.random().toString(36).substring(2, 8);
+    }
+
+    function saveToLocal() {
+        localStorage.setItem('pactforge_agreements', JSON.stringify(agreements));
+    }
+
+    function loadFromLocal() {
+        const stored = localStorage.getItem('pactforge_agreements');
+        if(stored) {
+            agreements = JSON.parse(stored);
+            agreements = agreements.map(a => ({
+                ...a,
+                status: a.status || 'Draft',
+                signatureDataURL: a.signatureDataURL || null,
+                signedAt: a.signedAt || null
+            }));
+        } else {
+            agreements = [];
+        }
+        renderTable();
+    }
+
+    function escapeHtml(str) { if(!str) return ''; return str.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+
+    function renderTable() {
+        const tbody = document.getElementById('tableBody');
+        if(!agreements.length) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">✨ No agreements. Click "Save & Generate Link"</td></tr>';
+            return;
+        }
+        let html = '';
+        agreements.forEach(ag => {
+            const statusClass = ag.status === 'Draft' ? 'status-draft' : (ag.status === 'Created' ? 'status-created' : 'status-signed');
+            const statusText = ag.status;
+            const dateFormatted = new Date(ag.date).toLocaleString();
+            const signLink = getFullSignLink(ag.id);
+            html += `
+                <tr>
+                    <td style="font-family:monospace; font-size:11px;">${ag.id.substring(0,14)}..</td>
+                    <td>${dateFormatted}</td>
+                    <td><strong>${escapeHtml(ag.clientName)}</strong><br><span style="font-size:12px;">${escapeHtml(ag.clientPhone)}</span></td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                    <td class="action-icons">
+                        <i class="fas fa-download" title="Download Signed PDF" onclick="downloadAgreementPDF('${ag.id}')"></i>
+                        ${ag.status !== 'Signed' ? `<i class="fas fa-link" title="Copy signing link" onclick="copySignLink('${ag.id}')"></i>` : ''}
+                        ${ag.status === 'Draft' ? `<i class="fas fa-check-circle" title="Mark as Ready (Send to Customer)" onclick="markAsCreated('${ag.id}')"></i>` : ''}
+                    </td>
+                    <td>
+                        ${ag.status !== 'Signed' ? `<span class="link-copy" onclick="copySignLink('${ag.id}')"><i class="fas fa-copy"></i> copy link</span>` : '<span style="color:#2c7a4d;">✓ Signed & locked</span>'}
+                    </td>
+                </tr>
+            `;
+        });
+        tbody.innerHTML = html;
+    }
+
+    function getFullSignLink(id) {
+        // Use current origin + path, add ?sign= param
+        let baseUrl = window.location.href.split('?')[0].split('#')[0];
+        return baseUrl + '?sign=' + id;
+    }
+
+    async function copySignLink(id) {
+        const link = getFullSignLink(id);
+        try {
+            await navigator.clipboard.writeText(link);
+            alert('✅ Signing link copied!\nShare with customer:\n' + link);
+        } catch(err) {
+            prompt('Copy this link manually:', link);
+        }
+    }
+
+    // Create agreement (always DRAFT)
+    function createAgreement() {
+        const clientName = document.getElementById('clientName').value.trim();
+        const clientPhone = document.getElementById('clientPhone').value.trim();
+        if(!clientName || !clientPhone) {
+            alert('Please fill in Customer Name and Phone');
+            return;
+        }
+        const newId = generateUniqueId();
+        const newAgreement = {
+            id: newId,
+            date: new Date().toISOString(),
+            clientName: clientName,
+            clientPhone: clientPhone,
+            agreementText: STATIC_AGREEMENT_TEXT, // fixed template
+            status: 'Draft',
+            signatureDataURL: null,
+            signedAt: null
+        };
+        agreements.unshift(newAgreement);
+        saveToLocal();
+        renderTable();
+        document.getElementById('clientName').value = '';
+        document.getElementById('clientPhone').value = '';
+        alert(`✅ Agreement created! ID: ${newId}\nStatus: Draft. Now click "Mark as Ready" or share link after marking "Created".`);
+    }
+
+    function markAsCreated(id) {
+        const idx = agreements.findIndex(a => a.id === id);
+        if(idx !== -1 && agreements[idx].status === 'Draft') {
+            agreements[idx].status = 'Created';
+            saveToLocal();
+            renderTable();
+            alert('Status updated to "Created". Customer can now sign via the unique link.');
+        } else if(agreements[idx]?.status === 'Signed') {
+            alert('This agreement is already signed.');
+        } else {
+            alert('Only Draft agreements can be marked as Ready.');
+        }
+    }
+
+    // Download final PDF (with signature if exists)
+    async function downloadAgreementPDF(id) {
+        const agreement = agreements.find(a => a.id === id);
+        if(!agreement) return;
+        const signatureImg = agreement.signatureDataURL;
+        const pdfDiv = document.createElement('div');
+        pdfDiv.style.padding = '30px';
+        pdfDiv.style.fontFamily = 'sans-serif';
+        pdfDiv.style.background = 'white';
+        pdfDiv.innerHTML = `
+            <h2 style="color:#2c7a4d;">Signed Agreement · ${agreement.id}</h2>
+            <p><strong>Customer:</strong> ${escapeHtml(agreement.clientName)}</p>
+            <p><strong>Phone:</strong> ${escapeHtml(agreement.clientPhone)}</p>
+            <p><strong>Created:</strong> ${new Date(agreement.date).toLocaleString()}</p>
+            <p><strong>Status:</strong> ${agreement.status} ${agreement.signedAt ? '· Signed at: ' + new Date(agreement.signedAt).toLocaleString() : ''}</p>
+            <hr/>
+            <h3>Agreement Terms (fixed template)</h3>
+            <div style="white-space:pre-wrap; background:#f9f9f9; padding:16px; border-radius:16px;">${escapeHtml(STATIC_AGREEMENT_TEXT)}</div>
+            <h3>Customer Signature</h3>
+            ${signatureImg ? `<img src="${signatureImg}" style="max-width:350px; border:1px solid #ccc; border-radius:12px;" />` : '<p><em>No signature provided</em></p>'}
+            <p style="margin-top:30px;"><small>Generated via PactForge · Legally binding e-signature</small></p>
+        `;
+        document.body.appendChild(pdfDiv);
+        const opt = { margin: 0.5, filename: `Agreement_${agreement.id}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2 }, jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' } };
+        await html2pdf().set(opt).from(pdfDiv).save();
+        document.body.removeChild(pdfDiv);
+    }
+
+    // ---------- CUSTOMER PAGE (standalone, full page, not modal) ----------
+    function showCustomerPage(agreement) {
+        // hide admin dashboard, show customer view
+        document.getElementById('adminApp').style.display = 'none';
+        const customerContainer = document.getElementById('customerViewRoot');
+        customerContainer.style.display = 'block';
+        
+        // If agreement already signed -> display read-only signed info
+        if(agreement.status === 'Signed') {
+            customerContainer.innerHTML = `
+                <div class="customer-page">
+                    <div class="customer-header">
+                        <h2><i class="fas fa-check-circle" style="color:#2c7a4d;"></i> Agreement Already Signed</h2>
+                        <p>This document has been finalized and cannot be modified.</p>
+                    </div>
+                    <div class="signed-message">
+                        <i class="fas fa-file-signature" style="font-size:2rem;"></i>
+                        <h3>Signed on ${new Date(agreement.signedAt).toLocaleString()}</h3>
+                        <p><strong>Customer:</strong> ${escapeHtml(agreement.clientName)}</p>
+                        <p><strong>Phone:</strong> ${escapeHtml(agreement.clientPhone)}</p>
+                        <hr>
+                        <h4>Agreement Terms</h4>
+                        <div class="static-text-content" style="text-align:left;">${escapeHtml(STATIC_AGREEMENT_TEXT).replace(/\n/g, '<br>')}</div>
+                        ${agreement.signatureDataURL ? `<h4>Signature on file</h4><img src="${agreement.signatureDataURL}" style="max-width:280px; border-radius:16px; border:1px solid #ccc;" />` : ''}
+                        <br><br>
+                        <button class="btn btn-outline" id="downloadFinalPdfBtn"><i class="fas fa-download"></i> Download PDF Copy</button>
+                    </div>
+                </div>
+            `;
+            const downloadBtn = document.getElementById('downloadFinalPdfBtn');
+            if(downloadBtn) downloadBtn.onclick = () => downloadAgreementPDF(agreement.id);
+            return;
+        }
+        
+        // Not signed yet -> show signing interface (read-only name/phone + signature)
+        customerContainer.innerHTML = `
+            <div class="customer-page">
+                <div class="customer-header">
+                    <h2><i class="fas fa-file-signature"></i> Service Agreement</h2>
+                    <p>Please review the terms below and sign electronically</p>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-user"></i> Full Name (as provided by officer)</label>
+                    <input type="text" id="customerNameDisplay" value="${escapeHtml(agreement.clientName)}" disabled style="background:#f3f6fa; font-weight:500;">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-phone"></i> Phone Number</label>
+                    <input type="text" id="customerPhoneDisplay" value="${escapeHtml(agreement.clientPhone)}" disabled style="background:#f3f6fa;">
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-scroll"></i> Agreement Text (Fixed)</label>
+                    <div class="static-text-content" style="background:#fefaf0; border-radius:24px; padding:16px; max-height:300px; overflow-y:auto;">
+                        ${escapeHtml(STATIC_AGREEMENT_TEXT).replace(/\n/g, '<br>')}
+                    </div>
+                </div>
+                <hr>
+                <label><i class="fas fa-pen-fancy"></i> Electronic Signature (Draw or Upload Image)</label>
+                <div class="signature-pad-container">
+                    <canvas id="signCanvas" width="500" height="200" style="width:100%; height:200px; background:white; border-radius:20px;"></canvas>
+                </div>
+                <div class="flex-buttons">
+                    <button class="btn btn-outline" id="clearSignBtn"><i class="fas fa-eraser"></i> Clear Drawing</button>
+                    <button class="btn btn-outline" id="uploadSignBtn"><i class="fas fa-image"></i> Upload Signature Image</button>
+                    <input type="file" id="imageUploadInput" accept="image/*" style="display:none;">
+                    <button class="btn btn-outline" id="useCurrentSignBtn"><i class="fas fa-check"></i> Use Current Signature</button>
+                </div>
+                <div class="flex-buttons">
+                    <button class="btn btn-primary" id="submitFinalAgreementBtn" style="background:#2c7a4d;"><i class="fas fa-check-circle"></i> Submit Signed Agreement</button>
+                    <button class="btn btn-outline" id="downloadPdfCustomerBtn"><i class="fas fa-download"></i> Download PDF Draft</button>
+                </div>
+                <div id="signStatusMsg" style="margin-top: 15px; font-size:0.85rem; text-align:center;"></div>
+            </div>
+        `;
+        
+        // Setup signature pad
+        const canvas = customerContainer.querySelector('#signCanvas');
+        let signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255,255,255)' });
+        function resizeCanvas() {
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            const w = canvas.offsetWidth;
+            const h = canvas.offsetHeight;
+            canvas.width = w * ratio;
+            canvas.height = h * ratio;
+            canvas.getContext('2d').scale(ratio, ratio);
+            signaturePad.clear();
+        }
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        let capturedSignatureURL = null;
+        customerContainer.querySelector('#clearSignBtn').onclick = () => { signaturePad.clear(); capturedSignatureURL = null; document.getElementById('signStatusMsg').innerHTML = ''; };
+        
+        // upload image as signature
+        const fileInput = customerContainer.querySelector('#imageUploadInput');
+        customerContainer.querySelector('#uploadSignBtn').onclick = () => fileInput.click();
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        canvas.width = canvas.offsetWidth;
+                        canvas.height = canvas.offsetHeight;
+                        const ctx = canvas.getContext('2d');
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                        signaturePad.clear();
+                        capturedSignatureURL = canvas.toDataURL();
+                        document.getElementById('signStatusMsg').innerHTML = '<span style="color:#2c7a4d;">✓ Image loaded as signature</span>';
+                    };
+                    img.src = ev.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+        
+        customerContainer.querySelector('#useCurrentSignBtn').onclick = () => {
+            if(signaturePad.isEmpty() && !capturedSignatureURL) {
+                alert('Please draw a signature or upload an image first.');
+                return;
+            }
+            capturedSignatureURL = signaturePad.toDataURL();
+            document.getElementById('signStatusMsg').innerHTML = '<span style="color:#2c7a4d;">✓ Signature captured! Ready to submit.</span>';
+        };
+        
+        // Download PDF (pre-submit draft)
+        async function downloadDraftPDF() {
+            const sigToUse = capturedSignatureURL || (signaturePad.isEmpty() ? null : signaturePad.toDataURL());
+            const pdfDiv = document.createElement('div');
+            pdfDiv.style.padding = '30px';
+            pdfDiv.innerHTML = `<h2>Agreement Draft</h2><p>Customer: ${escapeHtml(agreement.clientName)}</p><p>Phone: ${escapeHtml(agreement.clientPhone)}</p><div>${escapeHtml(STATIC_AGREEMENT_TEXT).replace(/\n/g,'<br>')}</div>${sigToUse ? `<h3>Signature Preview</h3><img src="${sigToUse}" style="max-width:250px;"/>` : '<p>No signature yet</p>'}`;
+            document.body.appendChild(pdfDiv);
+            await html2pdf().set({ margin: 0.5, filename: `Draft_${agreement.id}.pdf` }).from(pdfDiv).save();
+            document.body.removeChild(pdfDiv);
+        }
+        customerContainer.querySelector('#downloadPdfCustomerBtn').onclick = downloadDraftPDF;
+        
+        // SUBMIT: finalize signature and update status -> cannot sign again
+        customerContainer.querySelector('#submitFinalAgreementBtn').onclick = async () => {
+            let finalSig = capturedSignatureURL;
+            if(!finalSig && !signaturePad.isEmpty()) finalSig = signaturePad.toDataURL();
+            if(!finalSig) {
+                alert('You must provide a signature (draw or upload image) and click "Use Current Signature" before submission.');
+                return;
+            }
+            const idx = agreements.findIndex(a => a.id === agreement.id);
+            if(idx === -1) { alert('Agreement not found.'); return; }
+            if(agreements[idx].status === 'Signed') {
+                alert('This agreement is already signed. Reloading...');
+                window.location.reload();
+                return;
+            }
+            // Update agreement
+            agreements[idx].status = 'Signed';
+            agreements[idx].signatureDataURL = finalSig;
+            agreements[idx].signedAt = new Date().toISOString();
+            saveToLocal();
+            // Re-render admin table (behind the scenes)
+            renderTable();
+            // Refresh customer page to read-only signed version
+            showCustomerPage(agreements[idx]);
+            alert('✅ Agreement successfully signed! You can now download the final PDF.');
+        };
+    }
+    
+    // Router: check if URL has ?sign= param
+    function routeByUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const signId = params.get('sign');
+        if(signId) {
+            const agreement = agreements.find(a => a.id === signId);
+            if(agreement) {
+                document.getElementById('adminApp').style.display = 'none';
+                document.getElementById('customerViewRoot').style.display = 'block';
+                showCustomerPage(agreement);
+                // clean url param to avoid confusion but keep state
+                const cleanUrl = window.location.href.split('?')[0];
+                window.history.replaceState({}, document.title, cleanUrl);
+            } else {
+                // invalid id: show not found message inside customer view
+                document.getElementById('adminApp').style.display = 'none';
+                const container = document.getElementById('customerViewRoot');
+                container.style.display = 'block';
+                container.innerHTML = `<div class="customer-page"><div class="signed-message"><i class="fas fa-exclamation-triangle"></i><h3>Invalid or expired agreement link</h3><p>Please contact the administrator.</p></div></div>`;
+            }
+        } else {
+            // show admin dashboard
+            document.getElementById('adminApp').style.display = 'block';
+            document.getElementById('customerViewRoot').style.display = 'none';
+        }
+    }
+    
+    // attach global functions for table actions
+    window.downloadAgreementPDF = downloadAgreementPDF;
+    window.copySignLink = copySignLink;
+    window.markAsCreated = markAsCreated;
+    
+    // event listeners
+    document.getElementById('createAgreementBtn').addEventListener('click', createAgreement);
+    
+    // initial load
+    loadFromLocal();
+    routeByUrl();
+    // optional: re-run route when needed (popstate)
+    window.addEventListener('popstate', () => routeByUrl());
+</script>
+</body>
+</html>
